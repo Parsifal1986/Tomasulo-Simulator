@@ -11,6 +11,14 @@ private:
   uint32_t tmp;
 
 public:
+  Reg() {
+
+  }
+
+  Reg(const uint32_t data) {
+    reg = data;
+  }
+
   uint32_t slice(int left, int right) {
     return (reg >> right) & ((1 << (left + 1)) - 1);
   }
@@ -60,6 +68,8 @@ public:
   void Update() {
     reg = tmp;
   }
+
+  uint32_t Toi() { return reg; }
 };
 
 } // namespace parsifal_tools
