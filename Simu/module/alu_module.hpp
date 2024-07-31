@@ -1,7 +1,7 @@
 #ifndef  ALU_HPP
 #define ALU_HPP
 
-#include "tools.hpp"
+#include "all_tools.hpp"
 #include <cstdint>
 #include <iostream>
 #include <sys/types.h>
@@ -12,27 +12,26 @@ struct AluInput {
   shared_ptr<Wire> a;
   shared_ptr<Wire> b;
   shared_ptr<Wire> operand;
+  shared_ptr<Wire> tag;
 
   AluInput &operator=(const AluInput &other) {
     a = other.a;
     b = other.b;
     operand = other.operand;
+    tag = other.tag;
     return *this;
   }
 };
 
 struct AluOutput {
-  shared_ptr<Reg> result;
-  shared_ptr<Reg> done;
+  shared_ptr<CDB> cdb;
 
   void Update() {
-    done->Update();
-    result->Update();
+    cdb->Update();
   }
 
   AluOutput &operator=(const AluOutput &other) {
-    result = other.result;
-    done = other.done;
+    cdb = other.cdb;
     return *this;
   }
 };
@@ -67,81 +66,82 @@ public:
   }
 
   void Work() override {
-    if ((*input.operand)[31] == 0) {
+    if (input.tag->Toi()) {
       switch (input.operand->Toi()) {
         case ADD: {
-          (*output.result) <= input.a->Toi() + input.b->Toi();
+          output.cdb->alu_data <= input.a->Toi() + input.b->Toi();
           break;
         }
         case SUB: {
-          (*output.result) <= input.a->Toi() - input.b->Toi();
+          output.cdb->alu_data <= input.a->Toi() - input.b->Toi();
           break;
         }
         case AND: {
-          (*output.result) <= (input.a->Toi() & input.b->Toi());
+          output.cdb->alu_data <= (input.a->Toi() & input.b->Toi());
           break;
         }
         case OR: {
-          (*output.result) <= (input.a->Toi() | input.b->Toi());
+          output.cdb->alu_data <= (input.a->Toi() | input.b->Toi());
           break;
         }
         case XOR: {
-          (*output.result) <= (input.a->Toi() ^ input.b->Toi());
+          output.cdb->alu_data <= (input.a->Toi() ^ input.b->Toi());
           break;
         }
         case SLL: {
-          (*output.result) <= (input.a->Toi() << input.b->Toi());
+          output.cdb->alu_data <= (input.a->Toi() << input.b->Toi());
           break;
         }
         case SRL: {
-          (*output.result) <= (input.a->Toi() >> input.b->Toi());
+          output.cdb->alu_data <= (input.a->Toi() >> input.b->Toi());
           break;
         }
         case SRA: {
-          (*output.result) <= (uint32_t)(((int)input.a->Toi()) >> input.b->Toi());
+          output.cdb->alu_data <= (uint32_t)(((int)input.a->Toi()) >> input.b->Toi());
           break;
         }
         case SLT: {
-          (*output.result) <= ((int)input.a->Toi() < (int)input.b->Toi());
+          output.cdb->alu_data <= ((int)input.a->Toi() < (int)input.b->Toi());
           break;
         }
         case SLTU: {
-          (*output.result) <= (input.a->Toi() < input.b->Toi());
+          output.cdb->alu_data <= (input.a->Toi() < input.b->Toi());
           break;
         }
         case BEQ: {
-          (*output.result) <= (input.a->Toi() == input.b->Toi());
+          output.cdb->alu_data <= (input.a->Toi() == input.b->Toi());
           break;
         }
         case BNE: {
-          (*output.result) <= (input.a->Toi() != input.b->Toi());
+          output.cdb->alu_data <= (input.a->Toi() != input.b->Toi());
           break;
         }
         case BGE: {
-          (*output.result) <= ((int)input.a->Toi() >= (int)input.b->Toi());
+          output.cdb->alu_data <= ((int)input.a->Toi() >= (int)input.b->Toi());
           break;
         }
         case BGEU: {
-          (*output.result) <= (input.a->Toi() >= input.b->Toi());
+          output.cdb->alu_data <= (input.a->Toi() >= input.b->Toi());
           break;
         }
         case BLT: {
-          (*output.result) <= ((int)input.a->Toi() < (int)input.b->Toi());
+          output.cdb->alu_data <= ((int)input.a->Toi() < (int)input.b->Toi());
           break;
         }
         case BLTU: {
-          (*output.result) <= (input.a->Toi() < input.b->Toi());
+          output.cdb->alu_data <= (input.a->Toi() < input.b->Toi());
           break;
         }
         default: {
-          (*output.result) <= 0xffff;
+          output.cdb->alu_data <= 0xffff;
           std::cerr << "Wrong Opecode!" << std::endl;
           break;
         }
       }
-      (*output.done) <= 1;
+      output.cdb->alu_done <= 1;
+      output.cdb->alu_tag <= input.tag->Toi();
     } else {
-      (*output.done) <= 0;
+      output.cdb->alu_done <= 0;
     }
   }
 

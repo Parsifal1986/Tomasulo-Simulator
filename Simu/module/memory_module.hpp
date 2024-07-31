@@ -2,7 +2,7 @@
 #define MEMORY_MODULE_HPP
 
 #include "ROB_module.hpp"
-#include "tools.hpp"
+#include "all_tools.hpp"
 #include <cstdint>
 #include <fstream>
 #include <sstream>
@@ -43,10 +43,11 @@ struct MemoryOutput {
 class MemoryModule : public Module {
 private:
   enum MemoryOpcode : uint32_t {
-    BYTE = 0,
-    HALFWORD = 1,
-    WORD = 2,
-    INSTRUCTION = 3
+    BYTE = 0b000,
+    BYTEU = 0b100,
+    HALFWORD = 0b001,
+    HALFWORDU = 0b101,
+    WORD = 0b010
   };
   uint8_t memory[SIZE];
   MemoryInput instruction_input;
@@ -55,16 +56,13 @@ private:
   MemoryOutput ls_output;
   
   struct OutputBuffer {
-    uint32_t buffer[2];
-    int wait_time[2] = {-1, -1};
+    uint32_t buffer;
+    int wait_time = -1;
 
     void operator<=(uint32_t data) {
-      for (int i = 0; i < 2; i++) {
-        if (wait_time[i] == -1) {
-          buffer[i] = data;
-          wait_time[i] = 2;
-          break;
-        }
+      if (wait_time == -1) {
+        buffer = data;
+        wait_time = 2;
       }
     }
   } output_buffer;
@@ -107,10 +105,17 @@ public:
       std::istringstream iss(line);
 
       while (iss) {
-        for (int i = 3; i >= 0; --i) {
+        bool flag = true;
+        for (int i = 0; i < 4; ++i) {
           uint32_t byte;
-          iss >> std::hex >> byte;
+          if (!(iss >> std::hex >> byte)) {
+            flag = false;
+            break;
+          }
           memory[pos + i] = static_cast<uint8_t>(byte);
+        }
+        if (!flag) {
+          break;
         }
         pos += 4;
       }
@@ -118,51 +123,59 @@ public:
   }
 
   void WorkInstruction () {
-    if (!(*instruction_input.operand)[0]) {
+    if (!instruction_input.operand->Toi()) {
       (*instruction_output.output) <= 0;
       return;
     }
-    (*instruction_output.output) <= (uint32_t)((memory[instruction_input.addr->Toi()] << 24) + (memory[instruction_input.addr->Toi() + 1] << 16) + (memory[instruction_input.addr->Toi() + 2] << 8) + (memory[instruction_input.addr->Toi() + 3]));
+    (*instruction_output.output) <= (uint32_t)((memory[instruction_input.addr->Toi()]) + (memory[instruction_input.addr->Toi() + 1] << 8) + (memory[instruction_input.addr->Toi() + 2] << 16) + (memory[instruction_input.addr->Toi() + 3] << 24));
     (*instruction_output.ready) <= instruction_input.addr->Toi();
   }
 
   void WorkLS() {
-    if (!(*ls_input.operand)[0]) {
+    if (!(*ls_input.operand)[20]) {
       return;
     }
     if ((*ls_input.operand)[31] == 0) {
-      switch (ls_input.operand->slice(30, 29)) {
+      switch (ls_input.operand->slice(2, 0)) {
         case BYTE : {
-          output_buffer <= (uint32_t)memory[ls_input.addr->Toi()];
+          output_buffer <= static_cast<uint32_t>(memory[ls_input.addr->Toi()]);
+          break;
+        }
+        case BYTEU : {
+          output_buffer <= static_cast<uint32_t>((uint8_t)(memory[ls_input.addr->Toi()]));
           break;
         }
         case HALFWORD : {
-          output_buffer <= (uint32_t)((memory[ls_input.addr->Toi()] << 8) + memory[ls_input.addr->Toi() + 1]);
+          output_buffer <= static_cast<uint32_t>(memory[ls_input.addr->Toi()] + (memory[ls_input.addr->Toi() + 1] << 8));
+          break;
+        }
+        case HALFWORDU: {
+          output_buffer <= static_cast<uint32_t>((uint8_t)(memory[ls_input.addr->Toi()]) + (uint8_t)(memory[ls_input.addr->Toi() + 1] << 8));
           break;
         }
         case WORD : {
-          output_buffer <= (uint32_t)((memory[ls_input.addr->Toi()] << 24) + (memory[ls_input.addr->Toi() + 1] << 16) + (memory[ls_input.addr->Toi() + 2] << 8) + (memory[ls_input.addr->Toi() + 3]));
+          output_buffer <= (uint32_t)(memory[ls_input.addr->Toi()] + (memory[ls_input.addr->Toi() + 1] << 8) + (memory[ls_input.addr->Toi() + 2] << 16) + (memory[ls_input.addr->Toi() + 3]  << 24));
           break;
         }
       }
     } else if ((*ls_input.operand)[31] == 1) {
-      switch (ls_input.operand->slice(30, 29)) {
+      switch (ls_input.operand->slice(2, 0)) {
         case BYTE : {
           memory[ls_input.addr->Toi()] = (uint8_t)(ls_input.data->Toi());
           output_buffer <= 1;
           break;
         }
         case HALFWORD: {
-          memory[ls_input.addr->Toi()] = (uint8_t)(ls_input.data->slice(15, 8));
-          memory[ls_input.addr->Toi() + 1] = (uint8_t)(ls_input.data->slice(7, 0));
+          memory[ls_input.addr->Toi()] = (uint8_t)(ls_input.data->slice(7, 0));
+          memory[ls_input.addr->Toi() + 1] = (uint8_t)(ls_input.data->slice(15, 8));
           output_buffer <= 1;
           break;
         }
         case WORD: {
-          memory[ls_input.addr->Toi()] = (uint8_t)(ls_input.data->slice(31, 24));
-          memory[ls_input.addr->Toi() + 1] = (uint8_t)(ls_input.data->slice(23, 16));
-          memory[ls_input.addr->Toi() + 2] = (uint8_t)(ls_input.data->slice(15, 8));
-          memory[ls_input.addr->Toi() + 3] = (uint8_t)(ls_input.data->slice(7, 0));
+          memory[ls_input.addr->Toi()] = (uint8_t)(ls_input.data->slice(7, 0));
+          memory[ls_input.addr->Toi() + 1] = (uint8_t)(ls_input.data->slice(15, 8));
+          memory[ls_input.addr->Toi() + 2] = (uint8_t)(ls_input.data->slice(23, 16));
+          memory[ls_input.addr->Toi() + 3] = (uint8_t)(ls_input.data->slice(31, 24));
           output_buffer <= 1;
           break;
         }
@@ -178,19 +191,21 @@ public:
   }
 
   void UpdateLS() {
-      bool flag = 0;
-      for (int i = 0; i < 2; i++) {
-        output_buffer.wait_time[i] = std::max(output_buffer.wait_time[i] - 1, -1);
-        if (output_buffer.wait_time[i] == 0) {
-          (*ls_output.output) = output_buffer.buffer[i];
-          flag = 1;
-        }
-      }
-      (*ls_output.ready) = flag;
+    output_buffer.wait_time = std::max(output_buffer.wait_time - 1, -1);
+    if (output_buffer.wait_time <= 0 && (!ls_output.ready->Toi())) {
+      (*ls_output.ready) <= 1;
+    } else {
+      (*ls_output.ready) <= 0;
+    }
+    if (output_buffer.wait_time == 0) {
+      (*ls_output.output) <= output_buffer.buffer;
+      (*ls_output.ready) <= 0b11;
+    }
   }
 
   void Update() override {
     instruction_output.Update();
+    ls_output.Update();
     UpdateLS();
   }
 };

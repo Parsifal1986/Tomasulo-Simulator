@@ -1,58 +1,123 @@
 #ifndef RS_MODULE_HPP
 #define RS_MODULE_HPP
 
-#include "ROB_module.hpp"
-#include "tools.hpp"
+#include "BP_module.hpp"
+#include "all_tools.hpp"
+#include "register.hpp"
 #include <cstdint>
 #include <sys/types.h>
 
 namespace parsifal_modules {
 
+struct RsElement {
+  Reg busy;
+  Reg op;
+  Reg vj;
+  Reg vk;
+  Reg qj;
+  Reg qk;
+  Reg a;
+  Reg dest;
+
+  RsElement &operator=(const RsElement &other) {
+    busy = other.busy;
+    op = other.op;
+    vj = other.vj;
+    vk = other.vk;
+    qj = other.qj;
+    qk = other.qk;
+    a = other.a;
+    dest = other.dest;
+    return *this;
+  }
+
+  RsElement &operator<=(const RsElement &other) {
+    busy <= other.busy;
+    op <= other.op;
+    vj <= other.vj;
+    vk <= other.vk;
+    qj <= other.qj;
+    qk <= other.qk;
+    a <= other.a;
+    dest <= other.dest;
+    return *this;
+  }
+
+  void Update() {
+    busy.Update();
+    op.Update();
+    vj.Update();
+    vk.Update();
+    qj.Update();
+    qk.Update();
+    a.Update();
+    dest.Update();
+  }
+};
+
 struct RsInput {
-  shared_ptr<Wire> instruction;
+  shared_ptr<RsElement> instruction;
   shared_ptr<Wire> tag;
   shared_ptr<CDB> cdb;
+
+  RsInput &operator=(RsInput &other) {
+    instruction = other.instruction;
+    tag = other.tag;
+    cdb = other.cdb;
+    return *this;
+  }
 };
 
 struct RsAluOutput {
   shared_ptr<Reg> operand;
   shared_ptr<Reg> a;
   shared_ptr<Reg> b;
+  shared_ptr<Reg> tag;
 
   void Update() {
     a->Update();
     b->Update();
     operand->Update();
+    tag->Update();
+  }
+
+  RsAluOutput &operator=(RsAluOutput &other) {
+    operand = other.operand;
+    a = other.a;
+    b = other.b;
+    tag = other.tag;
+    return *this;
+  }
+};
+
+struct RsRobOutput {
+  shared_ptr<Reg> alu_ready;
+  shared_ptr<Reg> tag;
+  shared_ptr<Reg> data;
+
+  void Update() {
+    alu_ready->Update();
+    tag->Update();
+    data->Update();
+  }
+
+  RsRobOutput &operator=(RsRobOutput &other) {
+    alu_ready = other.alu_ready;
+    tag = other.tag;
+    data = other.data;
+    return *this;
   }
 };
 
 class RsModule : public Module {
 private:
-  struct element {
-    Reg busy;
-    Reg op;
-    Reg vj;
-    Reg vk;
-    Reg qj;
-    Reg qk;
-    Reg a;
-    Reg dest;
-  };
-  element alu_array[16];
+  static const int ARRAY_SIZE = 16;
+  RsElement alu_array[ARRAY_SIZE];
   uint32_t alu_array_size = 0;
-  element ls_array[16];
-  uint32_t ls_array_size = 0;
   RsInput rs_input;
   RsAluOutput rs_alu_output;
-  enum InstructionType {
-    AR = 0b0110011,
-    AI = 0b0010011,
-    LD = 0b0000011,
-    ST = 0b0100011,
-    BR = 0b1100011,
-    JPR = 0b1100111
-  };
-  enum AluOperand {
+  RsRobOutput rs_rob_output;
+  enum Operand {
     ADD,
     SUB,
     AND,
@@ -72,227 +137,90 @@ private:
   };
 
 public:
-  void WorkArray() {
-    uint32_t opcode = rs_input.instruction->slice(6, 0);
-    uint32_t func3 = rs_input.instruction->slice(14, 12);
-    if (rs_input.instruction->Toi()) {
-      if (opcode == ST || opcode == ST) {
+  void Set(RsInput set_input, RsAluOutput set_alu_output, RsRobOutput set_rob_output) {
+    rs_input = set_input;
+    rs_alu_output = set_alu_output;
+    rs_rob_output = set_rob_output;
+  }
 
-      } else {
-        for (int i = 0; i < 16; i++) {
-          if (alu_array[i].busy.Toi() == 0) {
-            ++alu_array_size;
-            alu_array[i].busy = 1;
-            alu_array[i].dest = rs_input.tag->Toi();
-            register_file.reg[alu_array[i].dest.Toi()] = i;
-            switch (opcode) {
-              case AR: {
-                uint32_t func7 = rs_input.instruction->slice(31, 25);
-                switch (func3) {
-                  case 0b000: {
-                    if (func7 == 0b0000000) {
-                      alu_array[i].op = ADD;
-                    } else if (func7 == 0b0100000) {
-                      alu_array[i].op = SUB;
-                    } else {
-                      std::cerr << "Wrong func7(RS parser)" << std::endl;
-                    }
-                    break;
-                  }
-                  case 0b111: {
-                    if (func7 == 0b0000000) {
-                      alu_array[i].op = AND;
-                    } else {
-                      std::cerr << "Wrong func7(RS parser)" << std::endl;
-                    }
-                    break;
-                  }
-                  case 0b110: {
-                    if (func7 == 0b0000000) {
-                      alu_array[i].op = OR;
-                    } else {
-                      std::cerr << "Wrong func7(RS parser)" << std::endl;
-                    }
-                    break;
-                  }
-                  case 0b100: {
-                    if (func7 == 0b0000000) {
-                      alu_array[i].op = XOR;
-                    } else {
-                      std::cerr << "Wrong func7(RS parser)" << std::endl;
-                    }
-                    break;
-                  }
-                  case 0b001: {
-                    if (func7 == 0b0000000) {
-                      alu_array[i].op = SLL;
-                    } else {
-                      std::cerr << "Wrong func7(RS parser)" << std::endl;
-                    }
-                    break;
-                  }
-                  case 0b101: {
-                    if (func7 == 0b0000000) {
-                      alu_array[i].op = SRL;
-                    } else if (func7 == 0b0100000) {
-                      alu_array[i].op = SRA;
-                    }else {
-                      std::cerr << "Wrong func7(RS parser)" << std::endl;
-                    }
-                    break;
-                  }
-                  case 0b010: {
-                    if (func7 == 0b0000000) {
-                      alu_array[i].op = SLT;
-                    } else {
-                      std::cerr << "Wrong func7(RS parser)" << std::endl;
-                    }
-                    break;
-                  }
-                  case 0b011: {
-                    if (func7 == 0b0000000) {
-                      alu_array[i].op = SLTU;
-                    } else {
-                      std::cerr << "Wrong func7(RS parser)" << std::endl;
-                    }
-                    break;
-                  }
-                }
-                uint32_t rs1 = rs_input.instruction->slice(19, 15);
-                uint32_t rs2 = rs_input.instruction->slice(24, 20);
-                if (register_file.state[rs1].Toi()) {
-                  alu_array[i].qj = register_file.state[rs1].Toi();
-                } else {
-                  alu_array[i].vj = register_file.reg[rs1];
-                }
-                if (register_file.state[rs2].Toi()) {
-                  alu_array[i].qk = register_file.state[rs2].Toi();
-                } else {
-                  alu_array[i].qj = register_file.reg[rs2];
-                }
-                break;
-              }
-              case AI: {
-                switch (func3) {
-                  case 0b000: {
-                    alu_array[i].op = ADD;
-                    break;
-                  }
-                  case 0b111: {
-                    alu_array[i].op = AND;
-                    break;
-                  }
-                  case 0b110: {
-                    alu_array[i].op = OR;
-                    break;
-                  }
-                  case 0b100: {
-                    alu_array[i].op = XOR;
-                    break;
-                  }
-                  case 0b001: {
-                    alu_array[i].op = SLL;
-                    break;
-                  }
-                  case 0b101: {
-                    alu_array[i].op = SRL;
-                    break;
-                  }
-                  case 0b010: {
-                    alu_array[i].op = SLT;
-                    break;
-                  }
-                  case 0b011: {
-                    alu_array[i].op = SLTU;
-                    break;
-                  }
-                }
-                uint32_t rs1 = rs_input.instruction->slice(19, 15);
-                uint32_t imm;
-                if (alu_array[i].op.Toi() == SRL || alu_array[i].op.Toi() == SLL) {
-                  uint32_t func7 = rs_input.instruction->slice(31, 25);
-                  if (func7) {
-                    alu_array[i].op = SRA;
-                  }
-                  imm = rs_input.instruction->slice(24, 20);
-                } else {
-                  imm = rs_input.instruction->slice(31, 20);
-                }
-                if (register_file.state[rs1].Toi()) {
-                  alu_array[i].qj = register_file.state[rs1].Toi();
-                } else {
-                  alu_array[i].vj = register_file.reg[rs1];
-                }
-                alu_array[i].qk = imm;
-                break;
-              }
-              case BR: {
-                switch (rs_input.instruction->slice(14, 12)) {
-                  case 0b000: {
-                    alu_array[i].op = BEQ;
-                    break;
-                  }
-                  case 0b101: {
-                    alu_array[i].op = BGE;
-                    break;
-                  }
-                  case 0b111: {
-                    alu_array[i].op = BGEU;
-                    break;
-                  }
-                  case 0b100: {
-                    alu_array[i].op = BLT;
-                    break;
-                  }
-                  case 0b110: {
-                    alu_array[i].op = BLTU;
-                    break;
-                  }
-                  case 0b001: {
-                    alu_array[i].op = BNE;
-                    break;
-                  }
-                }
-                uint32_t rs1 = rs_input.instruction->slice(19, 15);
-                uint32_t rs2 = rs_input.instruction->slice(24, 20);
-                if (register_file.state[rs1].Toi()) {
-                  alu_array[i].qj = register_file.state[rs1].Toi();
-                } else {
-                  alu_array[i].vj = register_file.reg[rs1];
-                }
-                if (register_file.state[rs2].Toi()) {
-                  alu_array[i].qk = register_file.state[rs2].Toi();
-                } else {
-                  alu_array[i].qj = register_file.reg[rs2];
-                }
-                break;
-              }
-              case JPR: {
-                alu_array[i].op = ADD;
-                uint32_t rs1 = rs_input.instruction->slice(19, 15);
-                uint32_t imm;
-                imm = rs_input.instruction->slice(31, 20);
-                if (register_file.state[rs1].Toi()) {
-                  alu_array[i].qj = register_file.state[rs1].Toi();
-                } else {
-                  alu_array[i].vj = register_file.reg[rs1];
-                }
-                alu_array[i].qk = imm;
-                break;
-              }
-            }
-          }
+  void WorkInstruction() {
+    if (rs_input.tag->Toi()) {
+      for (int i = 0; i < ARRAY_SIZE; i++) {
+        if (alu_array[i].busy == 0) {
+          alu_array[i] = (*rs_input.instruction);
+          break;
         }
       }
     }
   }
 
+  void WorkArray() {
+    bool flag = false;
+    (*rs_alu_output.tag) <= 0;
+    for (int i = 0; i < ARRAY_SIZE; i++) {
+      if (alu_array[i].busy.Toi()) {
+        if (!alu_array[i].qj.Toi() && !alu_array[i].qk.Toi()) {
+          (*rs_alu_output.a) <= alu_array[i].vj.Toi();
+          (*rs_alu_output.b) <= alu_array[i].vk.Toi();
+          (*rs_alu_output.operand) <= alu_array[i].op.Toi();
+          (*rs_alu_output.tag) <= alu_array[i].dest.Toi();
+          flag = true;
+        }
+      }
+      if (flag) {
+        break;
+      }
+    }
+    if (!flag) {
+      (*rs_alu_output.tag) <= 0;
+    }
+    if (alu_array_size < 14) {
+      (*rs_rob_output.alu_ready) <= 1;
+    } else {
+      (*rs_rob_output.alu_ready) <= 0;
+    }
+  }
+
+  void WorkCdb() {
+    if (rs_input.cdb->alu_done.Toi()) {
+      for (int i = 0; i <= ARRAY_SIZE; i++) {
+        if (alu_array[i].busy.Toi()) {
+          if (alu_array[i].dest.Toi() == rs_input.tag->Toi()) {
+            alu_array[i].a = rs_input.cdb->alu_data;
+            alu_array[i].busy = 0;
+          }
+          if (alu_array[i].vj == rs_input.tag->Toi()) {
+            alu_array[i].qj = rs_input.cdb->alu_data;
+          }
+          if (alu_array[i].vk == rs_input.tag->Toi()) {
+            alu_array[i].qk = rs_input.cdb->alu_data;
+          }
+        }
+      }
+      (*rs_rob_output.tag) <= rs_input.cdb->alu_tag.Toi();
+      (*rs_rob_output.data) <= rs_input.cdb->alu_data.Toi();
+      alu_array_size--;
+    }
+  }
+
+  void WorkFlush() {
+    if (register_file.flush.Toi()) {
+      for (int i = 0; i < ARRAY_SIZE; i++) {
+        alu_array[i].busy <= 0;
+      }
+    }
+  }
+
   void Work() override {
+    WorkFlush();
+    WorkInstruction();
     WorkArray();
+    WorkCdb();
   }
 
   void Update() override {
     rs_alu_output.Update();
+    rs_rob_output.Update();
   }
 
 };

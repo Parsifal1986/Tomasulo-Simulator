@@ -23,6 +23,12 @@ public:
 
   int Size() { return size; }
 
+  void Clear() {
+    head = 0;
+    tail = 0;
+    size = 0;
+  }
+
   bool PushBack(const Data data) {
     if (Size() == CAPACITY) {
       return false;
@@ -48,18 +54,17 @@ public:
 
   class iterator {
   public:
-    iterator(Queue *q, int p, int s) : queue(q), pos(p), start(s), count(0) {}
+    iterator(Queue *q, int p) : queue(q), pos(p) {}
 
-    Data &operator*() const { return queue->queue[(start + pos) % CAPACITY]; }
+    Data &operator*() const { return queue->queue[pos]; }
 
     iterator &operator++() {
       pos = (pos + 1) % CAPACITY;
-      count++;
       return *this;
     }
 
     bool operator!=(const iterator &other) const {
-      return count != other.count;
+      return queue != other.queue || pos != other.pos;
     }
 
     int num() const {
@@ -69,12 +74,10 @@ public:
   private:
     Queue *queue;
     int pos;
-    int start;
-    int count;
   };
 
-  iterator begin() { return iterator(this, head, head); }
-  iterator end() { return iterator(this, tail, head); }
+  iterator begin() { return iterator(this, head); }
+  iterator end() { return iterator(this, tail); }
 
 private:
   int head = 0, tail = 0, size = 0;

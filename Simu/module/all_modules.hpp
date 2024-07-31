@@ -2,6 +2,7 @@
 #define ALL_MODULES_HPP
 
 #include "BP_module.hpp"
+#include "LSB_module.hpp"
 #include "RS_module.hpp"
 #include "alu_module.hpp"
 #include "instruction_module.hpp"
@@ -19,5 +20,7 @@ using parsifal_modules::BpModule;
 using parsifal_modules::RsModule;
 
 using parsifal_modules::InstructionModule;
+
+using parsifal_modules::LsbModule;
 
 #endif // ALL_MODULES_HPP

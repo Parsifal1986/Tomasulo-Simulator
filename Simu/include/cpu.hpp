@@ -22,6 +22,8 @@ public:
 
   void Initialize() { clk = 0; }
 
+  int GetClk() { return clk; }
+
   void AddModule(std::shared_ptr<Module> module) {
     if (clk) {
       std::cout << "CPU Has Already Started Working!" << std::endl;
