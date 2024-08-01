@@ -80,18 +80,18 @@ public:
   }
 
   void ReadIn(const char* path) {
-    std::ifstream inputfile(path);
+    // std::ifstream inputfile(path);
 
-    if (!inputfile) {
-      std::cerr << "Can't open the file!" << std::endl;
-      return;
-    }
+    // if (!inputfile) {
+    //   std::cerr << "Can't open the file!" << std::endl;
+    //   return;
+    // }
 
     std::string line;
     uint32_t pos;
     bool flag;
 
-    while (std::getline(inputfile, line)) {
+    while (std::getline(/*inputfile*/std::cin, line)) {
       if (line.empty()) {
         continue;
       }
