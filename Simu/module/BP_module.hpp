@@ -45,14 +45,17 @@ struct BpOutput {
 struct BpElement {
   Reg jp;
   Reg tag;
+  Reg busy;
 
   BpElement &operator<=(const BpElement &other) {
     jp <= other.jp;
     tag <= other.tag;
+    busy <= other.busy;
     return *this;
   }
 
   void Update() {
+    busy.Update();
     jp.Update();
     tag.Update();
   }
@@ -62,7 +65,8 @@ class BpModule : public Module {
 private:
   BpInput input;
   BpOutput output;
-  Queue<BpElement, 16> queue;
+  BpElement array[16];
+  int array_size = 0;
   Reg num = 0;
 
 public:
@@ -74,25 +78,37 @@ public:
   void Work() override {
     (*output.tag) <= 0;
     if (input.tag->Toi()) {
-      queue.PushBack(BpElement{Reg(input.jp->Toi()), Reg(input.tag->Toi())});
-    }
-    if (queue.Size() && input.cdb->alu_done.Toi()) {
-      if (input.cdb->alu_tag == queue.Front().tag) {
-        if ((input.cdb->alu_data.Toi())) {
-          if (num.Toi() < 0b11) {
-            num = num.Toi() + 1;
-          }
-        } else {
-          if (num.Toi() > 0b00) {
-            num = num.Toi() - 1;
-          }
+      for (int i = 0; i < 16; i++) {
+        if (!array[i].busy.Toi()) {
+          array[i] = BpElement { Reg(input.jp->Toi()), Reg(input.tag->Toi()), 1};
+          array_size++;
+          break;
         }
-        (*output.tag) <= ((input.cdb->alu_data == queue.Front().jp) ? 0 : queue.Front().tag);
-        queue.PopFront();
+      }
+    }
+    if (array_size && input.cdb->alu_done.Toi()) {
+      for (int i = 0; i < 16; i++) {
+        if (input.cdb->alu_tag == array[i].tag && array[i].busy.Toi()) {
+          if ((input.cdb->alu_data.Toi())) {
+            if (num.Toi() < 0b11) {
+              num = num.Toi() + 1;
+            }
+          } else {
+            if (num.Toi() > 0b00) {
+              num = num.Toi() - 1;
+            }
+          }
+          (*output.tag) <= ((input.cdb->alu_data == array[i].jp) ? 0 : array[i].tag);
+          array[i].busy = 0;
+          array_size--;
+        }
       }
     }
     if (register_file.flush.Toi()) {
-      queue.Clear();
+      for (int i = 0; i < 16; i++) {
+        array[i].busy = 0;
+        array_size = 0;
+      }
     }
     register_file.jump <= num[1];
   }

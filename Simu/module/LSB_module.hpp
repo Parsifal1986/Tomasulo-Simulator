@@ -213,11 +213,11 @@ public:
   }
 
   void Work() override {
-    WorkFlush();
     WorkInput();
     WorkDependence();
     WorkOutput();
     WorkMem();
+    WorkFlush();
   }
 
   void Update() override {
