@@ -237,10 +237,10 @@ public:
   }
 
   void Work() override {
-    WorkFlush();
     WorkInstruction();
     WorkArray();
     WorkCdb();
+    WorkFlush();
   }
 
   void Update() override {

@@ -81,6 +81,7 @@ public:
         if (input.instruction->slice(6, 0) == 0b1100011) {
           uint32_t offset = (((*input.instruction)[31] ? 0xfffff000 : 0) | ((*input.instruction)[7] << 11) | (input.instruction->slice(30, 25) << 5) | (input.instruction->slice(11, 8) << 1));
           next = ((register_file.jump.Toi()) ? input.addr->Toi() + offset : register_file.program_counter.Toi());
+          register_file.program_counter <= next.Toi();
           if (register_file.jump.Toi()) {
             abandon <= 1;
           }
@@ -88,6 +89,7 @@ public:
           uint32_t offset = ((*input.instruction)[31] ? 0xfff00000 : 0) | (input.instruction->slice(19, 12) << 12) | ((*input.instruction)[20] << 11) | (input.instruction->slice(30, 21) << 1);
           next = input.addr->Toi() + offset;
           abandon <= 1;
+          register_file.program_counter <= next.Toi();
         }
       }
       if (input.instruction->Toi() == 0x0ff00513) {
