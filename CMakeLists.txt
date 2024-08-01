@@ -8,6 +8,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED true)
 include_directories(Simu/include)
 include_directories(Simu/module)
 
-add_executable(demo sample/main.cpp)
+# add_executable(demo sample/main.cpp)
 
 add_executable(code Simu/src/main.cpp)
