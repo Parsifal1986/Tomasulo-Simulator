@@ -4,6 +4,7 @@
 #include "RS_module.hpp"
 #include "all_tools.hpp"
 #include "all_modules.hpp"
+#include <cstdio>
 #include <memory>
 
 RegisterFile register_file;
@@ -12,8 +13,8 @@ int main() {
   Cpu cpu;
 
   cpu.Initialize();
-  
-  const char* path = "array_test1.data";
+
+  const char *path = "tak.data";
 
   auto memory = std::make_shared<MemoryModule>();
   auto alu = std::make_shared<AluModule>();
@@ -120,17 +121,26 @@ int main() {
   cpu.AddModule(lsb);
   cpu.AddModule(bp);
 
+  // freopen("1.out", "w", stdout);
   while (true) {
-    if (register_file.program_counter == 4180) {
-      std::cout << "Here";
-    }
+    // if (cpu.GetClk() == 384) {
+    //   std::cout << "Here";
+    // }
     cpu.cycle();
     cdb->Update();
     register_file.Update();
 
-    std::cout << "round" << cpu.GetClk() << std::endl;
-    std::cout << register_file << std::endl;
+    if (register_file.terminal.Toi()) {
+      break;
+    }
+
+    // std::cout << "round" << cpu.GetClk() << std::endl;
+    // std::cout << register_file << std::endl;
   }
-  
+
+  std::cout << register_file.reg[10].slice(7, 0);
+
+  // fclose(stdout);
+
   return 0;
 }

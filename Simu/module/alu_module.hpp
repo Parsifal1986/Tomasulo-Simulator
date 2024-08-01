@@ -1,6 +1,7 @@
 #ifndef  ALU_HPP
 #define ALU_HPP
 
+#include "BP_module.hpp"
 #include "all_tools.hpp"
 #include <cstdint>
 #include <iostream>
@@ -66,6 +67,10 @@ public:
   }
 
   void Work() override {
+    if (register_file.flush.Toi()) {
+      output.cdb->alu_done <= 0;
+      return;
+    }
     if (input.tag->Toi()) {
       switch (input.operand->Toi()) {
         case ADD: {

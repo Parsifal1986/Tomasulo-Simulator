@@ -1,10 +1,12 @@
 #ifndef MEMORY_MODULE_HPP
 #define MEMORY_MODULE_HPP
 
+#include "BP_module.hpp"
 #include "ROB_module.hpp"
 #include "all_tools.hpp"
 #include <cstdint>
 #include <fstream>
+#include <iostream>
 #include <sstream>
 
 namespace parsifal_modules {
@@ -77,18 +79,18 @@ public:
   }
 
   void ReadIn(const char* path) {
-    std::ifstream inputfile(path);
+    // std::ifstream inputfile(path);
 
-    if (!inputfile) {
-      std::cerr << "Can't open the file!" << std::endl;
-      return;
-    }
+    // if (!inputfile) {
+    //   std::cerr << "Can't open the file!" << std::endl;
+    //   return;
+    // }
 
     std::string line;
     uint32_t pos;
     bool flag;
 
-    while (std::getline(inputfile, line)) {
+    while (std::getline(std::cin, line)) {
       if (line.empty()) {
         continue;
       }
@@ -185,27 +187,34 @@ public:
     }
   }
 
+  void WorkFlush() {
+    if (register_file.flush.Toi()) {
+      (*instruction_output.output) <= 0;
+    }
+  }
+
   void Work() override {
     WorkInstruction();
     WorkLS();
+    WorkFlush();
   }
 
   void UpdateLS() {
     output_buffer.wait_time = std::max(output_buffer.wait_time - 1, -1);
     if (output_buffer.wait_time <= 0 && (!ls_output.ready->Toi())) {
-      (*ls_output.ready) <= 1;
+      (*ls_output.ready) = 1;
     } else {
-      (*ls_output.ready) <= 0;
+      (*ls_output.ready) = 0;
     }
     if (output_buffer.wait_time == 0) {
-      (*ls_output.output) <= output_buffer.buffer;
-      (*ls_output.ready) <= 0b11;
+      (*ls_output.output) = output_buffer.buffer;
+      (*ls_output.ready) = 0b11;
     }
   }
 
   void Update() override {
     instruction_output.Update();
-    ls_output.Update();
+    // ls_output.Update();
     UpdateLS();
   }
 };

@@ -92,19 +92,19 @@ struct RsAluOutput {
 
 struct RsRobOutput {
   shared_ptr<Reg> alu_ready;
-  shared_ptr<Reg> tag;
-  shared_ptr<Reg> data;
+  // shared_ptr<Reg> tag;
+  // shared_ptr<Reg> data;
 
   void Update() {
     alu_ready->Update();
-    tag->Update();
-    data->Update();
+    // tag->Update();
+    // data->Update();
   }
 
   RsRobOutput &operator=(RsRobOutput &other) {
     alu_ready = other.alu_ready;
-    tag = other.tag;
-    data = other.data;
+    // tag = other.tag;
+    // data = other.data;
     return *this;
   }
 };
@@ -148,6 +148,7 @@ public:
       for (int i = 0; i < ARRAY_SIZE; i++) {
         if (alu_array[i].busy == 0) {
           alu_array[i] = (*rs_input.instruction);
+          alu_array_size++;
           break;
         }
       }
@@ -158,13 +159,14 @@ public:
     bool flag = false;
     (*rs_alu_output.tag) <= 0;
     for (int i = 0; i < ARRAY_SIZE; i++) {
-      if (alu_array[i].busy.Toi()) {
+      if (alu_array[i].busy.Toi() == 1) {
         if (!alu_array[i].qj.Toi() && !alu_array[i].qk.Toi()) {
           (*rs_alu_output.a) <= alu_array[i].vj.Toi();
           (*rs_alu_output.b) <= alu_array[i].vk.Toi();
           (*rs_alu_output.operand) <= alu_array[i].op.Toi();
           (*rs_alu_output.tag) <= alu_array[i].dest.Toi();
           flag = true;
+          alu_array[i].busy = 2;
         }
       }
       if (flag) {
@@ -185,29 +187,52 @@ public:
     if (rs_input.cdb->alu_done.Toi()) {
       for (int i = 0; i <= ARRAY_SIZE; i++) {
         if (alu_array[i].busy.Toi()) {
-          if (alu_array[i].dest.Toi() == rs_input.tag->Toi()) {
+          if (alu_array[i].dest.Toi() == rs_input.cdb->alu_tag.Toi()) {
             alu_array[i].a = rs_input.cdb->alu_data;
             alu_array[i].busy = 0;
+            alu_array_size--;
           }
-          if (alu_array[i].vj == rs_input.tag->Toi()) {
-            alu_array[i].qj = rs_input.cdb->alu_data;
+          if (alu_array[i].qj == rs_input.cdb->alu_tag.Toi()) {
+            alu_array[i].vj = rs_input.cdb->alu_data;
+            alu_array[i].qj = 0;
           }
-          if (alu_array[i].vk == rs_input.tag->Toi()) {
-            alu_array[i].qk = rs_input.cdb->alu_data;
+          if (alu_array[i].qk == rs_input.cdb->alu_tag.Toi()) {
+            alu_array[i].vk = rs_input.cdb->alu_data;
+            alu_array[i].qk = 0;
           }
         }
       }
-      (*rs_rob_output.tag) <= rs_input.cdb->alu_tag.Toi();
-      (*rs_rob_output.data) <= rs_input.cdb->alu_data.Toi();
-      alu_array_size--;
+      // (*rs_rob_output.tag) <= rs_input.cdb->alu_tag.Toi();
+      // (*rs_rob_output.data) <= rs_input.cdb->alu_data.Toi();
+    }
+    if (rs_input.cdb->ls_done.Toi()) {
+      for (int i = 0; i <= ARRAY_SIZE; i++) {
+        if (alu_array[i].busy.Toi()) {
+          if (alu_array[i].dest.Toi() == rs_input.cdb->ls_tag.Toi()) {
+            alu_array[i].a = rs_input.cdb->ls_data;
+            alu_array[i].busy = 0;
+            alu_array_size--;
+          }
+          if (alu_array[i].qj == rs_input.cdb->ls_tag.Toi()) {
+            alu_array[i].vj = rs_input.cdb->ls_data;
+            alu_array[i].qj = 0;
+          }
+          if (alu_array[i].qk == rs_input.cdb->ls_tag.Toi()) {
+            alu_array[i].vk = rs_input.cdb->ls_data;
+            alu_array[i].qk = 0;
+          }
+        }
+      }
     }
   }
 
   void WorkFlush() {
     if (register_file.flush.Toi()) {
       for (int i = 0; i < ARRAY_SIZE; i++) {
-        alu_array[i].busy <= 0;
+        alu_array[i].busy = 0;
+        alu_array_size = 0;
       }
+      (*rs_alu_output.tag) <= 0;
     }
   }
 

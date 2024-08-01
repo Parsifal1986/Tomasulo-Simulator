@@ -140,7 +140,8 @@ RobCdbInput cdb_input;
 RobBpInput bp_input;
 RobBpOutput bp_output;
 
-u_int32_t stop;
+u_int32_t wait = 0;
+u_int32_t stop = 0;
 
 struct element {
   Reg busy;
@@ -199,16 +200,22 @@ public:
     lsb_output = set_lsb_output;
   }
 
-  void WorkFlush() {
-    if (register_file.flush.Toi()) {
-      for (auto it = queue.begin(); it != queue.end(); ++it) {
-        queue.Clear();
-      }
+  void WorkBp() {
+    if (bp_input.tag->Toi()) {
+      queue.At(bp_input.tag->Toi() - 1).flush = 1;
     }
   }
 
-  void WorkQueue() {
-    if (instruction_input.instruction->Toi()) {
+  void WorkFlush() {
+    if (register_file.flush.Toi()) {
+      queue.Clear(); 
+      (*bp_output.tag) <= 0;
+      stop = 0;
+    }
+  }
+
+  void WorkEnQueue() {
+    if (instruction_input.instruction->Toi() && !stop) {
       element a;
       a.busy = 1;
       a.instruction = instruction_input.instruction->Toi();
@@ -224,34 +231,50 @@ public:
     } else {
       (*instruction_output.ready) <= 0;
     }
+  }
 
+  void WorkDeQueue() {
     register_file.flush <= 0;
     register_file.head_tag <= queue.begin().num() + 1;
-    if (queue.Front().state.Toi() == 0b10) {
+    register_file.need_jump <= 0;
+    if (queue.Size() && queue.Front().state.Toi() == 0b10) {
       if (queue.Front().instruction.slice(6, 4) == 0b110) {
+        if (queue.Front().instruction.slice(6, 0) == JPR || queue.Front().instruction.slice(6, 0) == JP) {
+          register_file.reg[queue.Front().destination.Toi()] <= queue.Front().value;
+          if (register_file.state[queue.Front().destination.Toi()].Toi() - 1 == queue.begin().num()) {
+            register_file.state[queue.Front().destination.Toi()] = 0;
+          }
+        }
         if (queue.Front().instruction.slice(6, 0) == JPR) {
           stop = 0;
-          register_file.flush <= 1;
           (*instruction_output.jmp_pc) <= queue.Front().value;
+          register_file.need_jump <= 1;
+          register_file.flush <= 1;
         } else if (queue.Front().instruction.slice(6, 0) == BR) {
+          if (!wait) {
+            wait = 1;
+            return;
+          } else {
+            wait = 0;
+          }
           if (queue.Front().flush.Toi()) {
             register_file.flush <= 1;
             if (queue.Front().value.Toi()) {
-              uint32_t offset = (queue.Front().instruction[31] << 12) | (queue.Front().instruction[7] << 11) | (queue.Front().instruction.slice(30, 25) << 5) | (queue.Front().instruction.slice(11, 8) << 1);
-              (*instruction_output.jmp_pc) <= queue.Front().pc.Toi();
+              uint32_t offset = ((queue.Front().instruction[31] ? 0xfffff000 : 0) | (queue.Front().instruction[7] << 11) | (queue.Front().instruction.slice(30, 25) << 5) | (queue.Front().instruction.slice(11, 8) << 1));
+              (*instruction_output.jmp_pc) <= queue.Front().pc.Toi() + offset;
+              register_file.need_jump <= 1;
             } else {
-              (*instruction_output.jmp_pc) <= queue.Front().pc.Toi();
+              (*instruction_output.jmp_pc) <= queue.Front().pc.Toi() + 4;
+              register_file.need_jump <= 1;
             }
           }
         }
       } else if (queue.Front().instruction.slice(6, 0) == 0b0100011) {
-        queue.Front().state = 0b11;
-        queue.Front().busy = 0;
-        queue.PopFront();
-      }
-      register_file.reg[queue.Front().destination.Toi()] <= queue.Front().value;
-      if (register_file.state[queue.Front().destination.Toi()].Toi() - 1 == queue.begin().num()) {
-        register_file.state[queue.Front().destination.Toi()] = 0;
+      } else {
+        register_file.reg[queue.Front().destination.Toi()] <= queue.Front().value;
+        if (register_file.state[queue.Front().destination.Toi()].Toi() - 1 == queue.begin().num()) {
+          register_file.state[queue.Front().destination.Toi()] = 0;
+        }
       }
       queue.Front().state = 0b11;
       queue.Front().busy = 0;
@@ -262,33 +285,23 @@ public:
   void Decoder(Reg instruction, Reg tag) {
     uint32_t opcode = instruction.slice(6, 0);
     uint32_t func3 = instruction.slice(14, 12);
-    if (opcode == ST || opcode == ST) {
+    if (opcode == ST || opcode == LD) {
       LsbElement e;
       e.tag = tag;
       switch (opcode) {
         case LD: {
           e.oprand = instruction.slice(14, 12);
-          if (register_file.state[instruction.slice(11, 7)].Toi()) {
-            uint32_t des = register_file.state[instruction.slice(11, 7)].Toi() - 1;
-            if (queue.At(des).state == 0b10) {
-              e.addr = queue.At(des).value;
-            } else {
-              e.rd = register_file.state[instruction.slice(11, 7)].Toi();
-            }
-          } else {
-            e.addr = register_file.reg[instruction.slice(11, 7)];
-          }
           if (register_file.state[instruction.slice(19, 15)].Toi()) {
             uint32_t des = register_file.state[instruction.slice(19, 15)].Toi() - 1;
             if (queue.At(des).state == 0b10) {
-              e.data = queue.At(des).value;
+              e.addr = queue.At(des).value;
             } else {
-              e.data = register_file.state[instruction.slice(19, 15)].Toi();
+              e.rd = register_file.state[instruction.slice(19, 15)].Toi();
             }
           } else {
-            e.data = register_file.reg[instruction.slice(19, 15)];
+            e.addr = register_file.reg[instruction.slice(19, 15)];
           }
-          e.imm = instruction.slice(31, 20);
+          e.imm = instruction.slice_with_sign(31, 20);
           break;
         }
         case ST: {
@@ -308,12 +321,12 @@ public:
             if (queue.At(des).state == 0b10) {
               e.data = queue.At(des).value;
             } else {
-              e.data = register_file.state[instruction.slice(24, 20)].Toi();
+              e.rs1 = register_file.state[instruction.slice(24, 20)].Toi();
             }
           } else {
-            e.data = register_file.reg[instruction.slice(24, 20)];
+            e.data = register_file.reg[instruction.slice(24, 20)].Toi();
           }
-          e.imm = (instruction.slice(31, 25) << 4) + instruction.slice(11, 7);
+          e.imm = instruction[31] ? 0xfffff000 | (instruction.slice(31, 25) << 5) | instruction.slice(11, 7) : (instruction.slice(31, 25) << 5) | instruction.slice(11, 7);
           break;
         }
       }
@@ -552,10 +565,11 @@ public:
     }
   }
 
-  void WorkExce() {
+  void WorkDecode() {
     Reg book;
     (*rs_output.tag) <= 0;
     lsb_output.instruction->tag <= 0;
+    (*bp_output.tag) <= 0;
     for (auto it = queue.begin(); it != queue.end(); ++it) {
       if (book.Toi()) {
         break;
@@ -575,7 +589,6 @@ public:
           case AR:
           case BR:
           case JPR: {
-            stop = 1;
             if (rs_input.alu_ready->Toi()) {
               (*rs_output.tag) <= it.num() + 1;
               Decoder((*it).instruction, it.num() + 1);
@@ -583,6 +596,9 @@ public:
               book = 1;
             }
             if (instruction_input.instruction->slice(6, 0) == JPR) {
+              stop = 1;
+            }
+            if (instruction_input.instruction->slice(6, 0) == BR) {
               (*bp_output.tag) <= it.num() + 1;
               (*bp_output.jp) <= register_file.jump;
             }
@@ -617,24 +633,28 @@ public:
   }
 
   void WorkRsBack() {
-    if (cdb_input.cdb->alu_tag.Toi()) {
+    if (cdb_input.cdb->alu_done.Toi()) {
       queue.At(cdb_input.cdb->alu_tag.Toi() - 1).value = cdb_input.cdb->alu_data.Toi();
       queue.At(cdb_input.cdb->alu_tag.Toi() - 1).state = 0b10;
+    }
+    if (cdb_input.cdb->ls_done.Toi()) {
+      queue.At(cdb_input.cdb->ls_tag.Toi() - 1).value = cdb_input.cdb->ls_data.Toi();
+      queue.At(cdb_input.cdb->ls_tag.Toi() - 1).state = 0b10;
     }
   }
 
   void Work() override {
+    WorkBp();
     WorkRsBack();
-    WorkQueue();
-    WorkExce();
+    WorkEnQueue();
+    WorkFlush();
+    WorkDecode();
+    WorkDeQueue();
   }
 
   void Update() override {
     if (stop) {
       (*instruction_output.ready) <= !stop;
-    }
-    if (bp_input.tag->Toi()) {
-      queue.At(bp_input.tag->Toi() - 1).flush = 1;
     }
     instruction_output.Update();
     rs_output.Update();

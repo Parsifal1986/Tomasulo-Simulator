@@ -110,6 +110,8 @@ public:
   void WorkFlush() {
     if (register_file.flush.Toi()) {
       queue.Clear();
+      (*mem_output.operand) <= 0;
+      cdb_output.cdb->ls_done <= 0;
     }
   }
 
@@ -151,7 +153,7 @@ public:
             (*it).rd = 0;
           }
           if ((*it).rs1 == cdb_output.cdb->alu_tag.Toi()) {
-            (*it).addr = cdb_output.cdb->alu_data.Toi();
+            (*it).data = cdb_output.cdb->alu_data.Toi();
             (*it).rs1 = 0;
           }
         }
@@ -165,7 +167,7 @@ public:
             (*it).rd = 0;
           }
           if ((*it).rs1 == cdb_output.cdb->ls_tag.Toi()) {
-            (*it).addr = cdb_output.cdb->ls_data.Toi();
+            (*it).data = cdb_output.cdb->ls_data.Toi();
             (*it).rs1 = 0;
           }
         }
@@ -174,30 +176,21 @@ public:
   }
 
   void WorkMem() {
+    (*mem_output.operand) <= 0;
     for (auto it = queue.begin(); it != queue.end(); ++it) {
-      if ((*it).rd.Toi() == 0 && (*it).rs1.Toi() == 0) {
-        if ((*it).oprand[31] == 0) {
+      if ((*it).oprand[31] == 0) {
+        if ((*it).rd.Toi() == 0 && (*it).rs1.Toi() == 0 && (*it).complete.Toi() == 0) {
           if (input.ready->Toi()) {
-            (*mem_output.operand) <= (*it).oprand;
+            (*mem_output.operand) <= ((*it).oprand.Toi() | (1 << 20));
             (*mem_output.addr) <= (*it).addr.Toi() + (*it).imm.Toi();
-            (*mem_output.data) <= (*it).data;
+            (*mem_output.data) <= (*it).data.Toi();
             (*it).complete = 1;
             break;
           }
-        } else {
-          break;
         }
+      } else {
+        break;
       }
-    }
-  }
-
-  void WorkOutput() {
-    (*mem_output.operand) <= 0;
-    if ((*queue.begin()).complete.Toi() == 2) {
-      cdb_output.cdb->ls_tag <= (*queue.begin()).tag;
-      cdb_output.cdb->ls_data <= (*queue.begin()).data;
-      cdb_output.cdb->ls_done <= 1;
-      queue.PopFront();
     }
     if (queue.Front().oprand[31] && queue.Front().complete.Toi() == 0 && register_file.head_tag.Toi() == queue.Front().tag.Toi()) {
       if (input.ready->Toi()) {
@@ -209,11 +202,22 @@ public:
     }
   }
 
+  void WorkOutput() {
+    cdb_output.cdb->ls_done <= 0;
+    if ((*queue.begin()).complete.Toi() == 2  && queue.Size()) {
+      cdb_output.cdb->ls_tag <= (*queue.begin()).tag;
+      cdb_output.cdb->ls_data <= (*queue.begin()).data;
+      cdb_output.cdb->ls_done <= 1;
+      queue.PopFront();
+    }
+  }
+
   void Work() override {
+    WorkFlush();
     WorkInput();
     WorkDependence();
-    WorkMem();
     WorkOutput();
+    WorkMem();
   }
 
   void Update() override {

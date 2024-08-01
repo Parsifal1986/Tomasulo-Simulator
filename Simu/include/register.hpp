@@ -88,6 +88,8 @@ public:
   }
 
   uint32_t Toi() const { return reg; }
+
+  friend class RegisterFile;
 };
 
 } // namespace parsifal_tools

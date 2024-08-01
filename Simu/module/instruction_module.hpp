@@ -67,50 +67,59 @@ public:
 
   void Flush() {
     if (register_file.flush.Toi()) {
+      abandon = 0;
       queue.Clear();
+      (*output.instruction) <= 0;
     }
   }
 
   void InputWork() {
+    Reg next = register_file.program_counter.Toi();
     if (input.instruction->Toi() && !abandon.Toi()) {
-      if (input.instruction->Toi() == 0xFD000000) {
-        return;
-      }
       queue.PushBack(element{Reg(input.instruction->Toi()), Reg(input.addr->Toi())});
       if (input.instruction->slice(6, 4) == 0b110) { // control
         if (input.instruction->slice(6, 0) == 0b1100011) {
-          uint32_t offset = ((*input.instruction)[31] << 12) | ((*input.instruction)[7] << 11) | (input.instruction->slice(30, 25) << 5) | (input.instruction->slice(11, 8) << 1);
-          register_file.program_counter = ((register_file.jump.Toi() & 0b10) ? input.addr->Toi() + offset : register_file.program_counter.Toi());
-          if (register_file.jump.Toi() & 0b01) {
+          uint32_t offset = (((*input.instruction)[31] ? 0xfffff000 : 0) | ((*input.instruction)[7] << 11) | (input.instruction->slice(30, 25) << 5) | (input.instruction->slice(11, 8) << 1));
+          next = ((register_file.jump.Toi()) ? input.addr->Toi() + offset : register_file.program_counter.Toi());
+          if (register_file.jump.Toi()) {
             abandon <= 1;
           }
         } else if (input.instruction->slice(6, 0) == 0b1101111) {
-          uint32_t offset = ((*input.instruction)[31] << 20) | (input.instruction->slice(19, 12) << 12) | ((*input.instruction)[20] << 11) | (input.instruction->slice(30, 21) << 1);
-          register_file.program_counter = input.addr->Toi() + offset;
+          uint32_t offset = ((*input.instruction)[31] ? 0xfff00000 : 0) | (input.instruction->slice(19, 12) << 12) | ((*input.instruction)[20] << 11) | (input.instruction->slice(30, 21) << 1);
+          next = input.addr->Toi() + offset;
           abandon <= 1;
         }
       }
+      if (input.instruction->Toi() == 0x0ff00513) {
+        abandon <= 1;
+        (*output.ready) <= 0;
+        return;
+      }
+    }
+    if (register_file.need_jump.Toi()) {
+      next = input.jmp_pc->Toi();
+      abandon <= 1;
     }
     if (abandon.Toi() == 1) {
       abandon <= 0;
     }
     if (queue.Size() < 98) {
-      (*output.addr) <= register_file.program_counter;
-      register_file.program_counter <= register_file.program_counter.Toi() + 4;
+      (*output.addr) <= next;
+      register_file.program_counter <= (next.Toi() + 4);
       (*output.ready) <= 1;
     } else {
-      (*output.addr) <= 0;
+      (*output.ready) <= 0;
     }
   }
 
   void Work() override {
-    Flush();
     InputWork();
     QueueWork();
+    Flush();
   }
 
   void QueueWork() {
-    if (queue.Empty() || !input.ready) {
+    if (queue.Empty() || !input.ready->Toi()) {
       (*output.instruction) <= 0;
       return;
     }
@@ -120,9 +129,6 @@ public:
   }
 
   void Update() override {
-    if (input.jmp_pc->Toi()) {
-      register_file.program_counter <= input.jmp_pc->Toi();
-    }
     abandon.Update();
     output.Update();
   }

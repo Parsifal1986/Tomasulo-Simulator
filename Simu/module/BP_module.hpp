@@ -72,12 +72,13 @@ public:
   }
 
   void Work() override {
+    (*output.tag) <= 0;
     if (input.tag->Toi()) {
       queue.PushBack(BpElement{Reg(input.jp->Toi()), Reg(input.tag->Toi())});
     }
     if (queue.Size() && input.cdb->alu_done.Toi()) {
       if (input.cdb->alu_tag == queue.Front().tag) {
-        if ((input.cdb->alu_data == queue.Front().jp)) {
+        if ((input.cdb->alu_data.Toi())) {
           if (num.Toi() < 0b11) {
             num = num.Toi() + 1;
           }
@@ -86,14 +87,17 @@ public:
             num = num.Toi() - 1;
           }
         }
-        (*output.tag) <= ((input.cdb->alu_data == queue.Front().jp) ? queue.Front().tag : 0);
+        (*output.tag) <= ((input.cdb->alu_data == queue.Front().jp) ? 0 : queue.Front().tag);
         queue.PopFront();
       }
     }
+    if (register_file.flush.Toi()) {
+      queue.Clear();
+    }
+    register_file.jump <= num[1];
   }
 
   void Update() override {
-    register_file.jump <= (num.Toi() & 0b10);
     input.Update();
     output.Update();
   }
