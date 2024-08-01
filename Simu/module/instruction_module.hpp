@@ -98,6 +98,7 @@ public:
     }
     if (register_file.need_jump.Toi()) {
       next = input.jmp_pc->Toi();
+      register_file.program_counter <= next.Toi();
       abandon <= 1;
     }
     if (abandon.Toi() == 1) {

@@ -4,6 +4,7 @@
 #include "BP_module.hpp"
 #include "ROB_module.hpp"
 #include "all_tools.hpp"
+#include <cstddef>
 #include <cstdint>
 #include <fstream>
 #include <iostream>
@@ -11,7 +12,7 @@
 
 namespace parsifal_modules {
 
-const int SIZE = 1<<22;
+const size_t SIZE = 1<<20;
 
 struct MemoryInput {
   shared_ptr<Wire> operand;
@@ -79,18 +80,18 @@ public:
   }
 
   void ReadIn(const char* path) {
-    // std::ifstream inputfile(path);
+    std::ifstream inputfile(path);
 
-    // if (!inputfile) {
-    //   std::cerr << "Can't open the file!" << std::endl;
-    //   return;
-    // }
+    if (!inputfile) {
+      std::cerr << "Can't open the file!" << std::endl;
+      return;
+    }
 
     std::string line;
     uint32_t pos;
     bool flag;
 
-    while (std::getline(std::cin, line)) {
+    while (std::getline(inputfile, line)) {
       if (line.empty()) {
         continue;
       }
@@ -190,6 +191,8 @@ public:
   void WorkFlush() {
     if (register_file.flush.Toi()) {
       (*instruction_output.output) <= 0;
+      (output_buffer.buffer) = 0;
+      (output_buffer.wait_time) = -1;
     }
   }
 
