@@ -210,6 +210,8 @@ public:
     if (register_file.flush.Toi()) {
       queue.Clear(); 
       (*bp_output.tag) <= 0;
+      (lsb_output.instruction->tag <= 0);
+      (*rs_output.tag) <= 0;
       stop = 0;
     }
   }
@@ -238,6 +240,10 @@ public:
     register_file.head_tag <= queue.begin().num() + 1;
     register_file.need_jump <= 0;
     if (queue.Size() && queue.Front().state.Toi() == 0b10) {
+      if (queue.Front().instruction.Toi() == 0x0ff00513) {
+        register_file.terminal <= 1;
+        return;
+      }
       if (queue.Front().instruction.slice(6, 4) == 0b110) {
         if (queue.Front().instruction.slice(6, 0) == JPR || queue.Front().instruction.slice(6, 0) == JP) {
           register_file.reg[queue.Front().destination.Toi()] <= queue.Front().value;
@@ -276,6 +282,7 @@ public:
           register_file.state[queue.Front().destination.Toi()] = 0;
         }
       }
+      // std::cout << "Commit: " << queue.Front().instruction.Toi() << " , PC" << std::hex << queue.Front().pc.Toi() << std::endl << register_file << std::endl;
       queue.Front().state = 0b11;
       queue.Front().busy = 0;
       queue.PopFront();
@@ -642,7 +649,7 @@ public:
       queue.At(cdb_input.cdb->ls_tag.Toi() - 1).state = 0b10;
     }
   }
-
+  
   void Work() override {
     WorkBp();
     WorkRsBack();

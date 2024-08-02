@@ -23,10 +23,10 @@ public:
         state[i] = 0;
       }
     }
-    if (reg[10].tmp == 255) {
-      terminal = 1;
-      return;
-    }
+    // if (reg[10].tmp == 255) {
+    //   terminal = 1;
+    //   return;
+    // }
     for (int i = 0; i < 32; i++) {
       if (i == 0) {
         reg[i] = 0;
@@ -40,6 +40,7 @@ public:
     jump.Update();
     head_tag.Update();
     need_jump.Update();
+    terminal.Update();
   }
 
   static const uint32_t empty = 0b10000;
