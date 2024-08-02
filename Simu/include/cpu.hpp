@@ -2,6 +2,7 @@
 #define CPU_HPP
 
 #include "module.hpp"
+#include <algorithm>
 #include <iostream>
 #include <memory>
 #include <vector>
@@ -33,6 +34,8 @@ public:
 
   void cycle() {
     clk++;
+
+    std::random_shuffle(modules.begin(), modules.end());
 
     for (auto it : modules) {
       it->Work();
