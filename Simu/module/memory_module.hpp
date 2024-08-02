@@ -153,7 +153,7 @@ public:
           break;
         }
         case HALFWORDU: {
-          output_buffer <= static_cast<uint32_t>((uint8_t)(memory[ls_input.addr->Toi()]) + (uint8_t)(memory[ls_input.addr->Toi() + 1] << 8));
+          output_buffer <= static_cast<uint32_t>((uint16_t)(memory[ls_input.addr->Toi()]) + (uint16_t)(memory[ls_input.addr->Toi() + 1] << 8));
           break;
         }
         case WORD : {
@@ -164,7 +164,7 @@ public:
     } else if ((*ls_input.operand)[31] == 1) {
       switch (ls_input.operand->slice(2, 0)) {
         case BYTE : {
-          memory[ls_input.addr->Toi()] = (uint8_t)(ls_input.data->Toi());
+          memory[ls_input.addr->Toi()] = (uint8_t)(ls_input.data->slice(7, 0));
           output_buffer <= 1;
           break;
         }
