@@ -152,7 +152,7 @@ struct element {
   Reg pc;
   Reg flush = 0;
 };
-Queue<element, 16> queue;
+Queue<element, 64> queue;
 enum InstructionType {
   AR = 0b0110011,
   AI = 0b0010011,
@@ -228,7 +228,7 @@ public:
       queue.PushBack(a);
     }
     
-    if (queue.Size() < 14) {
+    if (queue.Size() < 62) {
       (*instruction_output.ready) <= 1;
     } else {
       (*instruction_output.ready) <= 0;

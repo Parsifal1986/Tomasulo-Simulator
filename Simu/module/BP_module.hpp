@@ -62,14 +62,17 @@ struct BpElement {
 };
 
 class BpModule : public Module {
+static const int ARRAY_SIZE = 64;
 private:
   BpInput input;
   BpOutput output;
-  BpElement array[16];
+  BpElement array[ARRAY_SIZE];
   int array_size = 0;
   Reg num = 0;
 
 public:
+  int accurate = 0;
+  int wrong = 0;
   void Set(BpInput set_bp_input, BpOutput set_bp_output) {
     input = set_bp_input;
     output = set_bp_output;
@@ -78,7 +81,7 @@ public:
   void Work() override {
     (*output.tag) <= 0;
     if (input.tag->Toi()) {
-      for (int i = 0; i < 16; i++) {
+      for (int i = 0; i < ARRAY_SIZE; i++) {
         if (!array[i].busy.Toi()) {
           array[i] = BpElement { Reg(input.jp->Toi()), Reg(input.tag->Toi()), 1};
           array_size++;
@@ -87,7 +90,7 @@ public:
       }
     }
     if (array_size && input.cdb->alu_done.Toi()) {
-      for (int i = 0; i < 16; i++) {
+      for (int i = 0; i < ARRAY_SIZE; i++) {
         if (input.cdb->alu_tag == array[i].tag && array[i].busy.Toi()) {
           if ((input.cdb->alu_data.Toi())) {
             if (num.Toi() < 0b11) {
@@ -98,6 +101,8 @@ public:
               num = num.Toi() - 1;
             }
           }
+          accurate += (input.cdb->alu_data.Toi() == array[i].jp.Toi());
+          wrong += (input.cdb->alu_data.Toi() != array[i].jp.Toi());
           (*output.tag) <= ((input.cdb->alu_data == array[i].jp) ? 0 : array[i].tag);
           array[i].busy = 0;
           array_size--;
@@ -105,7 +110,7 @@ public:
       }
     }
     if (register_file.flush.Toi()) {
-      for (int i = 0; i < 16; i++) {
+      for (int i = 0; i < ARRAY_SIZE; i++) {
         array[i].busy = 0;
         array_size = 0;
       }

@@ -111,7 +111,7 @@ struct RsRobOutput {
 
 class RsModule : public Module {
 private:
-  static const int ARRAY_SIZE = 16;
+  static const int ARRAY_SIZE = 64;
   RsElement alu_array[ARRAY_SIZE];
   uint32_t alu_array_size = 0;
   RsInput rs_input;
@@ -176,7 +176,7 @@ public:
     if (!flag) {
       (*rs_alu_output.tag) <= 0;
     }
-    if (alu_array_size < 14) {
+    if (alu_array_size < 62) {
       (*rs_rob_output.alu_ready) <= 1;
     } else {
       (*rs_rob_output.alu_ready) <= 0;
