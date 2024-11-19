@@ -440,38 +440,38 @@ public:
         }
         case AI: {
           switch (func3) {
-          case 0b000: {
-            e.op = ADD;
-            break;
-          }
-          case 0b111: {
-            e.op = AND;
-            break;
-          }
-          case 0b110: {
-            e.op = OR;
-            break;
-          }
-          case 0b100: {
-            e.op = XOR;
-            break;
-          }
-          case 0b001: {
-            e.op = SLL;
-            break;
-          }
-          case 0b101: {
-            e.op = SRL;
-            break;
-          }
-          case 0b010: {
-            e.op = SLT;
-            break;
-          }
-          case 0b011: {
-            e.op = SLTU;
-            break;
-          }
+            case 0b000: {
+              e.op = ADD;
+              break;
+            }
+            case 0b111: {
+              e.op = AND;
+              break;
+            }
+            case 0b110: {
+              e.op = OR;
+              break;
+            }
+            case 0b100: {
+              e.op = XOR;
+              break;
+            }
+            case 0b001: {
+              e.op = SLL;
+              break;
+            }
+            case 0b101: {
+              e.op = SRL;
+              break;
+            }
+            case 0b010: {
+              e.op = SLT;
+              break;
+            }
+            case 0b011: {
+              e.op = SLTU;
+              break;
+            }
           }
           uint32_t rs1 = instruction.slice(19, 15);
           uint32_t imm;
@@ -582,7 +582,7 @@ public:
         break;
       }
       if ((*it).busy.Toi() == 1 && (*it).state.Toi() == 0) {
-        switch (instruction_input.instruction->slice(6, 0)) {
+        switch ((*it).instruction.slice(6, 0)) {
           case LD:
           case ST: {
             if (lsb_input.ls_ready->Toi()) {
