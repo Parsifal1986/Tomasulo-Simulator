@@ -246,7 +246,7 @@ public:
       }
       if (queue.Front().instruction.slice(6, 4) == 0b110) {
         if (queue.Front().instruction.slice(6, 0) == JPR || queue.Front().instruction.slice(6, 0) == JP) {
-          register_file.reg[queue.Front().destination.Toi()] <= queue.Front().value;
+          register_file.reg[queue.Front().destination.Toi()] <= queue.Front().pc.Toi() + 4;
           if (register_file.state[queue.Front().destination.Toi()].Toi() - 1 == queue.begin().num()) {
             register_file.state[queue.Front().destination.Toi()] = 0;
           }
