@@ -253,7 +253,7 @@ public:
         }
         if (queue.Front().instruction.slice(6, 0) == JPR) {
           stop = 0;
-          (*instruction_output.jmp_pc) <= register_file.reg[queue.Front().instruction.slice(19, 15)].Toi() + queue.Front().instruction.slice_with_sign(31, 20);
+          (*instruction_output.jmp_pc) <= register_file.reg[queue.Front().instruction.slice(19, 15)].Toi() + queue.Front().instruction.slice(31, 20);
           register_file.need_jump <= 1;
           register_file.flush <= 1;
         } else if (queue.Front().instruction.slice(6, 0) == BR) {
