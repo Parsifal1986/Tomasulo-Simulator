@@ -253,7 +253,7 @@ public:
         }
         if (queue.Front().instruction.slice(6, 0) == JPR) {
           stop = 0;
-          (*instruction_output.jmp_pc) <= register_file.reg[queue.Front().instruction.slice(19, 15)].Toi() + queue.Front().instruction.slice(31, 20);
+          (*instruction_output.jmp_pc) <= queue.Front().value;
           register_file.need_jump <= 1;
           register_file.flush <= 1;
         } else if (queue.Front().instruction.slice(6, 0) == BR) {
@@ -595,7 +595,7 @@ public:
           case AI:
           case AR:
           case BR:
-          /*case JPR:*/ {
+          case JPR: {
             if (rs_input.alu_ready->Toi()) {
               (*rs_output.tag) <= it.num() + 1;
               Decoder((*it).instruction, it.num() + 1);
@@ -610,11 +610,6 @@ public:
               (*bp_output.jp) <= register_file.jump;
             }
             break;
-          }
-          case JPR: {
-            (*it).state = 0b10;;
-            (*it).value = (*it).pc.Toi() + 4;
-            stop = 1;
           }
           case JP: {
             (*it).state = 0b10;

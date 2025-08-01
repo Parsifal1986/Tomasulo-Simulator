@@ -230,8 +230,8 @@ public:
     if (register_file.flush.Toi()) {
       for (int i = 0; i < ARRAY_SIZE; i++) {
         alu_array[i].busy = 0;
-        alu_array_size = 0;
       }
+      alu_array_size = 0;
       (*rs_alu_output.tag) <= 0;
     }
   }
